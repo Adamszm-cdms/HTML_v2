@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Report Exporter</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            width: 80%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .export-button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .export-button:hover {
+            background-color: #0056b3;
+        }
+
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #fff;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .status-message {
+            margin-top: 20px;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+    </style>
+    <!-- ArcGIS API for JavaScript -->
+    <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
+</head>
+
+<body>
+    <div class="container">
+        <h2>Export Dashboard Report</h2>
+        <p>Click the button below to generate and download a PDF report based on current dashboard data.</p>
+
+        <button id="exportBtn" class="export-button">
+            <span id="buttonText">Generate PDF Report</span>
+            <span id="loadingSpinner" class="spinner" style="display: none;">⏳</span>
+        </button>
+
+        <div id="status" class="status-message"></div>
+
+        <div id="config" style="display: none;">
+            <!-- We'll store our layer URLs here for easy editing -->
+        </div>
+    </div>
+
+    <!-- External Libraries -->
+    <script src="https://js.arcgis.com/4.28/"></script>
+
+    <!-- Load our custom JavaScript using AMD -->
+    <script>
+        require([
+            "esri/layers/FeatureLayer",
+            "esri/rest/query",
+            "esri/rest/support/Query",
+            "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+        ], function (FeatureLayer, query, Query, jsPDFModule) {
+            const exportBtn = document.getElementById('exportBtn');
+            const buttonText = document.getElementById('buttonText');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const statusDiv = document.getElementById('status');
+
+            exportBtn.addEventListener('click', generateReport);
+
+            async function generateReport() {
+                try {
+                    statusDiv.textContent = ''; // Clear previous status
+                    buttonText.textContent = 'Generating...';
+                    loadingSpinner.style.display = 'inline-block';
+                    exportBtn.disabled = true;
+
+                    // CUSTOMIZE THIS: Replace with your actual layer URLs from your dashboard
+                    const layerUrl = "https://services1.arcgis.com/VVapzOPgBae5joyC/arcgis/rest/services/MDC_Field_Work_Database/FeatureServer/0";
+
+                    // Query the data
+                    const featureLayer = new FeatureLayer({
+                        url: layerUrl
+                    });
+
+                    const queryParams = new Query({
+                        where: "1=1", // Adjust this query as needed
+                        outFields: ["PARENT_Premise_Address"], // CUSTOMIZE: Add your field names here
+                        returnGeometry: false
+                    });
+
+                    const results = await featureLayer.queryFeatures(queryParams);
+
+                    // Generate PDF
+                    await createPDF(results.features);
+
+                    statusDiv.textContent = 'Report generated successfully! (Check your new browser tab)';
+                } catch (error) {
+                    console.error('Error generating report:', error);
+                    statusDiv.textContent = 'Error generating report. Please try again.';
+                } finally {
+                    buttonText.textContent = 'Generate PDF Report';
+                    loadingSpinner.style.display = 'none';
+                    exportBtn.disabled = false;
+                }
+            }
+
+            function createPDF(features) {
+                // jsPDF is under .jsPDF in the UMD build
+                const { jsPDF } = jsPDFModule;
+                const doc = new jsPDF();
+
+                // Add title
+                doc.setFontSize(20);
+                doc.text('Dashboard Report', 20, 20);
+
+                // Add date
+                doc.setFontSize(12);
+                doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 35);
+
+                // Add data
+                let yPosition = 50;
+                doc.setFontSize(14);
+                doc.text('Data Summary:', 20, yPosition);
+                yPosition += 10;
+
+                doc.setFontSize(10);
+                features.forEach((feature, index) => {
+                    if (yPosition > 270) { // Start new page if needed
+                        doc.addPage();
+                        yPosition = 20;
+                    }
+
+                    // CUSTOMIZE: Modify this section based on your data structure
+                    const attributes = feature.attributes;
+                    const address = attributes.PARENT_Premise_Address || 'N/A';
+                    doc.text(`Record ${index + 1}: Address - ${address}`, 20, yPosition);
+                    yPosition += 8;
+                });
+
+                // Open the PDF in a new tab instead of direct download
+                doc.output('dataurlnewwindow');
+            }
+        });
+    </script>
+</body>
+</html>

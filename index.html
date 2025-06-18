@@ -145,7 +145,7 @@
                     // Generate PDF
                     await createPDF(results.features);
 
-                    statusDiv.textContent = 'Report generated successfully! (Check your new browser tab)';
+                    statusDiv.textContent = 'Report generated! Click the link below to download.';
                 } catch (error) {
                     console.error('Error generating report:', error);
                     statusDiv.textContent = 'Error generating report. Please try again.';
@@ -157,7 +157,6 @@
             }
 
             function createPDF(features) {
-                // jsPDF is under .jsPDF in the UMD build
                 const { jsPDF } = jsPDFModule;
                 const doc = new jsPDF();
 
@@ -182,15 +181,16 @@
                         yPosition = 20;
                     }
 
-                    // CUSTOMIZE: Modify this section based on your data structure
                     const attributes = feature.attributes;
                     const address = attributes.PARENT_Premise_Address || 'N/A';
                     doc.text(`Record ${index + 1}: Address - ${address}`, 20, yPosition);
                     yPosition += 8;
                 });
 
-                // Open the PDF in a new tab instead of direct download
-                doc.output('dataurlnewwindow');
+                // Create a blob and a download link
+                const pdfBlob = doc.output('blob');
+                const url = URL.createObjectURL(pdfBlob);
+                statusDiv.innerHTML = `<a href="${url}" download="dashboard-report.pdf" target="_blank">Click here to download your PDF</a>`;
             }
         });
     </script>
